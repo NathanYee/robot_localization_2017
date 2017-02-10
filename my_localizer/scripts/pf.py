@@ -232,7 +232,13 @@ class ParticleFilter:
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        pass
+
+        total = sum([p.w for p in self.particle_cloud])
+
+        if total != 0:
+            for p in self.particle_cloud:
+                p.w /= total
+
         # Plan: divide each by the sum of all
         # TODO: implement this
 
