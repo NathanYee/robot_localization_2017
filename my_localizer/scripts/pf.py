@@ -233,6 +233,7 @@ class ParticleFilter:
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
         pass
+        # Plan: divide each by the sum of all
         # TODO: implement this
 
     def publish_particles(self, msg):
