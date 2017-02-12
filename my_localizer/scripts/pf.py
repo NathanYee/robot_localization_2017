@@ -222,10 +222,19 @@ class ParticleFilter:
             Arguments
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is ommitted, the odometry will be used """
-        if xy_theta == None:
+        if xy_theta is None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
         self.particle_cloud = []
         # TODO create particles
+
+        linear_variance = 2.0  # meters
+        angular_variance = 1.0  # radians
+
+        xs = np.random.normal(xy_theta[0], linear_variance, size=self.n_particles)
+        ys = np.random.normal(xy_theta[1], linear_variance, size=self.n_particles)
+        thetas = np.random.vonmises(xy_theta[2], angular_variance, size=self.n_particles)
+
+        self.particle_cloud = [Particle(x=xs[i], y=ys[i], theta=thetas[i]) for i in xrange(self.n_particles)]
 
         self.normalize_particles()
         self.update_robot_pose()
