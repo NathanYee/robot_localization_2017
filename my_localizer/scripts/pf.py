@@ -120,19 +120,12 @@ class ParticleFilter:
 
         self.current_odom_xy_theta = []
 
-        # request the map from the map server, the map should be of type nav_msgs/OccupancyGrid
-        # TODO: fill in the appropriate service call here.  The resultant map should be assigned be passed
-        #       into the init method for OccupancyField
-
-
         # Make a ros service call to the /static_map service to get a nav_msgs/OccupancyGrid map.
-        # Then use OccupancyField to make the map object 
+        # Then use OccupancyField to make the map object
 
         robotMap = rospy.ServiceProxy('/static_map', GetMap)().map
         self.occupancy_field = OccupancyField(robotMap)
         print "OccupancyField initialized", self.occupancy_field
-
-        # for now we have commented out the occupancy field initialization until you can successfully fetch the map
 
         self.initialized = True
 
