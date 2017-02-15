@@ -61,7 +61,7 @@ class Particle(object):
         # TODO: define additional helper functions if needed
 
 
-class ParticleFilter:
+class ParticleFilter(object):
     """ The class that represents a Particle Filter ROS Node
         Attributes list:
             initialized: a Boolean flag to communicate to other class methods that initializaiton is complete
@@ -163,8 +163,31 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-            # TODO: modify particles using delta
-            # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
+
+        for i, particle in enumerate(self.particle_cloud):
+            # TODO: randomize using odometry uncertainty
+
+            # Calculate the angle difference between the old odometry position and the old particle position
+            angleDelta = particle.theta - old_odom_xy_theta[2]
+
+            # pre-calculate trig for speed
+            sintheta = np.sin(angleDelta)
+            costheta = np.cos(angleDelta)
+
+            rotationmatrix = np.asarray([[costheta, -sintheta],
+                                         [sintheta, costheta]])
+
+            # rotate the motion vector, add the result to the particle
+            rotated_delta = np.dot(rotationmatrix, delta[:2])
+
+            particle.x += rotated_delta[0]
+            particle.y += rotated_delta[1]
+
+            particle.theta += delta[2]
+
+            # Make sure the particle's angle doesn't wrap
+            particle.theta = angle_diff(particle.theta, 0)
+
 
     def map_calc_range(self, x, y, theta):
         """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
