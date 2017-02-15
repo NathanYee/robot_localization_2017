@@ -252,8 +252,8 @@ class ParticleFilter(object):
         self.particle_cloud = []
         # TODO create particles
 
-        linear_variance = 2.0  # meters
-        angular_variance = 1.0  # radians
+        linear_variance = 0.5  # meters
+        angular_variance = 4
 
         xs = np.random.normal(xy_theta[0], linear_variance, size=self.n_particles)
         ys = np.random.normal(xy_theta[1], linear_variance, size=self.n_particles)
