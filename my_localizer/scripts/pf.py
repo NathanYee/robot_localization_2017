@@ -250,7 +250,6 @@ class ParticleFilter(object):
         if xy_theta is None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
         self.particle_cloud = []
-        # TODO create particles
 
         linear_variance = 0.5  # meters
         angular_variance = 4
