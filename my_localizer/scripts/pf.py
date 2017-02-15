@@ -167,26 +167,41 @@ class ParticleFilter(object):
         for i, particle in enumerate(self.particle_cloud):
             # TODO: randomize using odometry uncertainty
 
-            # Calculate the angle difference between the old odometry position and the old particle position
-            angleDelta = particle.theta - old_odom_xy_theta[2]
-
-            # pre-calculate trig for speed
-            sintheta = np.sin(angleDelta)
-            costheta = np.cos(angleDelta)
-
-            rotationmatrix = np.asarray([[costheta, -sintheta],
-                                         [sintheta, costheta]])
+            # Calculate the angle difference between the old odometry position
+            # and the old particle position. Then create a rotation matrix between
+            # the two angles
+            rotationmatrix = self.make_rotation_matrix(particle.theta - old_odom_xy_theta[2])
 
             # rotate the motion vector, add the result to the particle
             rotated_delta = np.dot(rotationmatrix, delta[:2])
 
-            particle.x += rotated_delta[0]
-            particle.y += rotated_delta[1]
+            linear_randomness = np.random.normal(1, 0.1)
+            angular_randomness = np.random.uniform(1, 0.1)
 
-            particle.theta += delta[2]
+            particle.x += rotated_delta[0] * linear_randomness
+            particle.y += rotated_delta[1] * linear_randomness
+
+            particle.theta += delta[2] * angular_randomness
 
             # Make sure the particle's angle doesn't wrap
             particle.theta = angle_diff(particle.theta, 0)
+
+    def make_rotation_matrix(self, theta):
+        """ make_rotation_matrix returns a rotation matrix given angle theta
+
+        Args:
+            theta (number): the angle of rotation in radians CCW
+
+        Returns:
+            ndarray: a two by two rotation matrix
+
+        """
+        sinTheta = np.sin(theta)
+        cosTheta = np.cos(theta)
+
+        return np.array([[cosTheta, -sinTheta],
+                         [sinTheta, cosTheta]])
+
 
 
     def map_calc_range(self, x, y, theta):
