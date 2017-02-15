@@ -9,6 +9,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, PoseArray, Pose, Point, Quaternion
 from nav_msgs.srv import GetMap
 from copy import deepcopy
+from nav_msgs.msg import OccupancyGrid
 
 import tf
 from tf import TransformListener
@@ -122,9 +123,12 @@ class ParticleFilter:
         # request the map from the map server, the map should be of type nav_msgs/OccupancyGrid
         # TODO: fill in the appropriate service call here.  The resultant map should be assigned be passed
         #       into the init method for OccupancyField
+        robotMap = rospy.ServiceProxy('/static_map', GetMap)().map
+        self.occupancy_field = OccupancyField(robotMap)
+        print "OccupancyField initialized", self.occupancy_field
 
         # for now we have commented out the occupancy field initialization until you can successfully fetch the map
-        # self.occupancy_field = OccupancyField(map)
+
         self.initialized = True
 
     def update_robot_pose(self):
@@ -311,7 +315,7 @@ class ParticleFilter:
         self.publish_particles(msg)
 
     def fix_map_to_odom_transform(self, msg):
-        """ This method constantly updates the offset of the map and 
+        """ This method constantly updates the offset of the map and
             odometry coordinate systems based on the latest results from
             the localizer
             TODO: if you want to learn a lot about tf, reimplement this... I can provide
