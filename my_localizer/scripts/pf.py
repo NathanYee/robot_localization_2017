@@ -139,9 +139,10 @@ class ParticleFilter(object):
         # first make sure that the particle weights are normalized
         self.normalize_particles()
 
+        chosen_one = max(self.particle_cloud, key=lambda p: p.w)
         # TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
+        self.robot_pose = chosen_one.as_pose()
 
     def update_particles_with_odom(self, msg):
         """ Update the particles using the newly given odometry pose.
@@ -282,10 +283,11 @@ class ParticleFilter(object):
             probabilities = []
             for point in scan_points.points:
                 # Move the point onto the particle
-                xy = np.dot(mat33, np.array([point.x, point.y, 1]))[:2]
+                xy = np.dot(mat33, np.array([point.x, point.y, 1]))
+                print mat33, xy, list(xy)[0,0]
 
                 # Figure out the probability of that point
-                distToWall = self.occupancy_field.get_closest_obstacle_distance(*xy)
+                distToWall = self.occupancy_field.get_closest_obstacle_distance(xy[0], xy[1])
                 if distToWall == float('nan'):
                     continue
 
