@@ -5,8 +5,8 @@
 import rospy
 
 from std_msgs.msg import Header, String
-from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, PoseArray, Pose, Point, Quaternion
+from sensor_msgs.msg import LaserScan, PointCloud
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, PoseArray, Pose, Point, Quaternion, Point32
 from nav_msgs.srv import GetMap
 from copy import deepcopy
 from nav_msgs.msg import OccupancyGrid
@@ -21,6 +21,7 @@ import math
 import time
 
 import numpy as np
+import scipy
 from numpy.random import random_sample
 from sklearn.neighbors import NearestNeighbors
 from occupancy_field import OccupancyField
@@ -219,8 +220,80 @@ class ParticleFilter(object):
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
 
+    @staticmethod
+    def laserUncertaintyModel(distErr):
+        """
+        Computes the probability of the laser returning a point distance distErr from the wall.
+        Note that this uses an exponential distribution instead of anything reasonable for computational speed.
+
+        Args:
+            distErr (float): The distance between the point returned and the nearest
+                            wall on the map (in meters)
+
+        Returns:
+            probability (float): A probability, in the range 0...1
+        """
+
+        # TODO: make these into rosparams
+        k = 0.1  # meters of half-life of distance probability for main distribution
+        probMiss = 0.05  # Base probability that the laser scan is totally confused
+
+        distErr = abs(distErr)
+
+        return (1/(1+probMiss)) * (probMiss + 1/(distErr / k + 1))
+
     def update_particles_with_laser(self, msg):
-        """ Updates the particle weights in response to the scan contained in the msg """
+        """ Updates the particle weights in response to the scan contained in the msg
+        Args:
+            msg (LaserScan): incoming message
+        """
+
+        # TODO: do trig first for speed boost
+
+        # Transform to cartesian coordinates
+        scan_points = PointCloud()
+        scan_points.header= msg.header
+
+        for i, range in enumerate(msg.ranges):
+            if range == 0:
+                continue
+            # Calculate point in laser coordinate frame
+            angle = msg.angle_min + i*msg.angle_increment
+            x = range * np.cos(angle)
+            y = range * np.sin(angle)
+            scan_points.points.append(Point32(x=x, y=y))
+
+        # Transform into base_link coordinates
+        scan_points = self.tf_listener.transformPointCloud('base_link', scan_points)
+
+        # For each particle...
+        for particle in self.particle_cloud:
+
+            # Create a 3x3 matrix that transforms points from the origin to the particle
+            rotmatrix = np.matrix([[np.cos(particle.theta), -np.sin(particle.theta), 0],
+                                   [np.sin(particle.theta), np.cos(particle.theta), 0],
+                                   [0, 0, 1]])
+            transmatrix = np.matrix([[1, 0, particle.x],
+                                     [0, 1, particle.y],
+                                     [0, 0, 1]])
+            mat33 = np.dot(transmatrix, rotmatrix)
+
+            # Iterate through the points in the laser scan
+
+            for point in scan_points.points:
+                # Move the point onto the particle
+                xy = np.dot(mat33, np.array([point.x, point.y, 1]))[:2]
+
+                # Figure out the probability of that point
+                distToWall = self.occupancy_field.get_closest_obstacle_distance(*xy)
+
+
+
+            # Combine those into probability of this scan given hypothesized location
+            # Update the particle's probability with new info
+
+        # Normalize particles
+
         # TODO: implement this
         pass
 
