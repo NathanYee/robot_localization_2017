@@ -2,6 +2,7 @@
   <dictionary name="eric">
     <words>
       <w>odometry</w>
+      <w>rosparam</w>
     </words>
   </dictionary>
 </component>

@@ -221,7 +221,7 @@ class ParticleFilter(object):
         # TODO: fill out the rest of the implementation
 
     @staticmethod
-    def laserUncertaintyModel(distErr):
+    def laser_uncertainty_model(distErr):
         """
         Computes the probability of the laser returning a point distance distErr from the wall.
         Note that this uses an exponential distribution instead of anything reasonable for computational speed.
@@ -242,13 +242,12 @@ class ParticleFilter(object):
 
         return (1/(1+probMiss)) * (probMiss + 1/(distErr / k + 1))
 
+
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg
         Args:
             msg (LaserScan): incoming message
         """
-
-        # TODO: do trig first for speed boost
 
         # Transform to cartesian coordinates
         scan_points = PointCloud()
@@ -280,22 +279,30 @@ class ParticleFilter(object):
 
             # Iterate through the points in the laser scan
 
+            probabilities = []
             for point in scan_points.points:
                 # Move the point onto the particle
                 xy = np.dot(mat33, np.array([point.x, point.y, 1]))[:2]
 
                 # Figure out the probability of that point
                 distToWall = self.occupancy_field.get_closest_obstacle_distance(*xy)
+                if distToWall == float('nan'):
+                    continue
 
-
+                probabilities.append(self.laser_uncertainty_model(distToWall))
 
             # Combine those into probability of this scan given hypothesized location
+            # This is the bullshit thing Paul showed
+            # TODO: exponent should be a rosparam
+            totalProb = np.sum([p ** 3 for p in probabilities]) / len(probabilities)
+
             # Update the particle's probability with new info
 
-        # Normalize particles
+            particle.w *= totalProb
 
-        # TODO: implement this
-        pass
+        # Normalize particles
+        self.normalize_particles()
+
 
     @staticmethod
     def weighted_values(values, probabilities, size):
