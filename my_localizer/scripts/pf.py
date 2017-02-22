@@ -160,7 +160,7 @@ class ParticleFilter(object):
             old_odom_xy_theta = self.current_odom_xy_theta
             delta = (new_odom_xy_theta[0] - self.current_odom_xy_theta[0],
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
-                     new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
+                     angle_diff(new_odom_xy_theta[2], self.current_odom_xy_theta[2]))
 
             self.current_odom_xy_theta = new_odom_xy_theta
         else:
@@ -169,7 +169,7 @@ class ParticleFilter(object):
 
 
         for i, particle in enumerate(self.particle_cloud):
-            # TODO: randomize using odometry uncertainty
+            # TODO: Change odometry uncertainty to be ROS param
 
             # Calculate the angle difference between the old odometry position
             # and the old particle position. Then create a rotation matrix between
@@ -179,8 +179,8 @@ class ParticleFilter(object):
             # rotate the motion vector, add the result to the particle
             rotated_delta = np.dot(rotationmatrix, delta[:2])
 
-            linear_randomness = np.random.normal(1, 0.1)
-            angular_randomness = np.random.uniform(1, 0.1)
+            linear_randomness = np.random.normal(1, 0.2)
+            angular_randomness = np.random.uniform(1, 0.3)
 
             particle.x += rotated_delta[0] * linear_randomness
             particle.y += rotated_delta[1] * linear_randomness
