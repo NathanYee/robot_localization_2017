@@ -180,7 +180,7 @@ class ParticleFilter(object):
             rotated_delta = np.dot(rotationmatrix, delta[:2])
 
             linear_randomness = np.random.normal(1, 0.2)
-            angular_randomness = np.random.uniform(1, 0.3)
+            angular_randomness = np.random.uniform(1.3, 0.3)
 
             particle.x += rotated_delta[0] * linear_randomness
             particle.y += rotated_delta[1] * linear_randomness
