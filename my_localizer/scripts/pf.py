@@ -284,10 +284,10 @@ class ParticleFilter(object):
             for point in scan_points.points:
                 # Move the point onto the particle
                 xy = np.dot(mat33, np.array([point.x, point.y, 1]))
-                print mat33, xy, list(xy)[0,0]
+                print mat33, xy, xy.item(0), xy.item(1)
 
                 # Figure out the probability of that point
-                distToWall = self.occupancy_field.get_closest_obstacle_distance(xy[0], xy[1])
+                distToWall = self.occupancy_field.get_closest_obstacle_distance(xy.item(0), xy.item(1))
                 if distToWall == float('nan'):
                     continue
 
