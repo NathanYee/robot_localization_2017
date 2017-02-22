@@ -302,7 +302,7 @@ class ParticleFilter(object):
 
                 # Figure out the probability of that point
                 distToWall = self.occupancy_field.get_closest_obstacle_distance(xy.item(0), xy.item(1))
-                if distToWall == float('nan'):
+                if np.isnan(distToWall):
                     continue
 
                 probabilities.append(self.laser_uncertainty_model(distToWall))
