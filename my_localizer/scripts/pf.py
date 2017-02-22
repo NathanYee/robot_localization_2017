@@ -135,6 +135,8 @@ class ParticleFilter(object):
             There are two logical methods for this:
                 (1): compute the mean pose
                 (2): compute the most likely pose (i.e. the mode of the distribution)
+
+            Our strategy is #2 to enable better tracking of unlikely particles in the future
         """
         # first make sure that the particle weights are normalized
         self.normalize_particles()
@@ -219,7 +221,20 @@ class ParticleFilter(object):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+
+        choices = self.particle_cloud
+        probabilities = [p.w for p in choices]
+        # TODO: Dynamically decide how many particles we need
+        n = self.n_particles
+
+        new_particles = self.draw_random_sample(choices, probabilities, n)
+
+        # Set all of the weights back to the same value. Concentration of particles reflects weight.
+        for p in new_particles:
+            p.w = 1.0
+        self.normalize_particles()
+
+        self.particle_cloud = new_particles
 
     @staticmethod
     def laser_uncertainty_model(distErr):
@@ -284,7 +299,6 @@ class ParticleFilter(object):
             for point in scan_points.points:
                 # Move the point onto the particle
                 xy = np.dot(mat33, np.array([point.x, point.y, 1]))
-                print mat33, xy, xy.item(0), xy.item(1)
 
                 # Figure out the probability of that point
                 distToWall = self.occupancy_field.get_closest_obstacle_distance(xy.item(0), xy.item(1))
@@ -319,9 +333,13 @@ class ParticleFilter(object):
     @staticmethod
     def draw_random_sample(choices, probabilities, n):
         """ Return a random sample of n elements from the set choices with the specified probabilities
-            choices: the values to sample from represented as a list
-            probabilities: the probability of selecting each element in choices represented as a list
-            n: the number of samples
+            Args:
+                choices: the values to sample from represented as a list
+                probabilities: the probability of selecting each element in choices represented as a list
+                n: the number of samples
+
+            Returns:
+                samples (List): A list of n elements, deep-copied from choices
         """
         values = np.array(range(len(choices)))
         probs = np.array(probabilities)
