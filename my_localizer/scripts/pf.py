@@ -570,4 +570,8 @@ if __name__ == '__main__':
     while not (rospy.is_shutdown()):
         # in the main loop all we do is continuously broadcast the latest map to odom transform
         n.broadcast_last_transform()
-        r.sleep()
+        try:
+            r.sleep()
+        except rospy.exceptions.ROSTimeMovedBackwardsException:
+            print "WARNING: Time jumped backwards"
+            continue
