@@ -43,7 +43,7 @@ class Particle(object):
             w: the particle weight (the class does not ensure that particle weights are normalized
     """
 
-    def __init__(self, x=0.0, y=0.0, theta=0.0, w=1.0):
+    def __init__(self, x=0.0, y=0.0, theta=0.0, turn_multiplier=1.45, w=1.0):
         """ Construct a new Particle
             x: the x-coordinate of the hypothesis relative to the map frame
             y: the y-coordinate of the hypothesis relative ot the map frame
@@ -53,6 +53,7 @@ class Particle(object):
         self.theta = theta
         self.x = x
         self.y = y
+        self.turn_multiplier = turn_multiplier
 
     def as_pose(self):
         """ A helper function to convert a particle to a geometry_msgs/Pose message """
@@ -121,8 +122,8 @@ class ParticleFilter(object):
         self.scan_topic = "scan"  # the topic where we will get laser scans from
 
         self.n_particles = 300  # the number of particles to use
-        self.p_lost = 0.5  # The probability given to the robot being "lost" at any given time
-        self.outliers_to_keep = 10  # The number of outliers to keep around
+        self.p_lost = .4  # The probability given to the robot being "lost" at any given time
+        self.outliers_to_keep = int(self.n_particles * self.p_lost * 0.5)  # The number of outliers to keep around
 
         self.d_thresh = 0.2  # the amount of linear movement before performing an update
         self.a_thresh = math.pi / 6  # the amount of angular movement before performing an update
@@ -207,7 +208,7 @@ class ParticleFilter(object):
             rotated_delta = np.dot(rotationmatrix, delta[:2])
 
             linear_randomness = np.random.normal(1, 0.2)
-            angular_randomness = np.random.uniform(1, 0.3)
+            angular_randomness = np.random.uniform(particle.turn_multiplier, 0.3)
 
             particle.x += rotated_delta[0] * linear_randomness
             particle.y += rotated_delta[1] * linear_randomness
@@ -293,6 +294,10 @@ class ParticleFilter(object):
         desired_outliers = int(self.n_particles * self.p_lost)
         desired_inliers = int(self.n_particles - desired_outliers)
 
+        # Calculate the average turn_multiplier of the inliers
+        mean_turn_multipler = np.mean([p.turn_multiplier for p in inliers])
+        print "Estimated turn multiplier:", mean_turn_multipler
+
         # Recalculate inliers
         probabilities = [p.w for p in self.particle_cloud]
         new_inliers = self.draw_random_sample(self.particle_cloud, probabilities, desired_inliers)
@@ -306,6 +311,8 @@ class ParticleFilter(object):
 
             new_outliers = outliers[:self.outliers_to_keep] + \
                            [Particle().generate_uniformly_on_map(self.occupancy_field.map) for _ in xrange(num_to_make)]
+            for p in new_outliers:
+                p.turn_multiplier = mean_turn_multipler
         else:
             new_outliers = outliers[:desired_outliers]
 
@@ -314,6 +321,7 @@ class ParticleFilter(object):
 
         for p in new_particles:
             p.w = 1.0
+            p.turn_multiplier = np.random.normal(p.turn_multiplier, 0.1)
         self.normalize_particles()
 
         self.particle_cloud = new_particles
