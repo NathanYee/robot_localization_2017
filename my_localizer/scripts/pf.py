@@ -74,6 +74,11 @@ class Particle(object):
         maxx = minx + map.info.width * map.info.resolution
         maxy = minx + map.info.height * map.info.resolution
 
+        minx = 0
+        miny = -1
+        maxx = 5
+        maxy = 4
+
         x = float(np.random.uniform(minx, maxx))
         y = float(np.random.uniform(miny, maxy))
 
@@ -116,7 +121,7 @@ class ParticleFilter(object):
         self.scan_topic = "scan"  # the topic where we will get laser scans from
 
         self.n_particles = 300  # the number of particles to use
-        self.p_lost = 0.3  # The probability given to the robot being "lost" at any given time
+        self.p_lost = 0.5  # The probability given to the robot being "lost" at any given time
         self.outliers_to_keep = 10  # The number of outliers to keep around
 
         self.d_thresh = 0.2  # the amount of linear movement before performing an update
@@ -202,7 +207,7 @@ class ParticleFilter(object):
             rotated_delta = np.dot(rotationmatrix, delta[:2])
 
             linear_randomness = np.random.normal(1, 0.2)
-            angular_randomness = np.random.uniform(1.3, 0.3)
+            angular_randomness = np.random.uniform(1, 0.3)
 
             particle.x += rotated_delta[0] * linear_randomness
             particle.y += rotated_delta[1] * linear_randomness
@@ -235,7 +240,7 @@ class ParticleFilter(object):
 
 
     def lost_particles(self):
-        """ inlier_outlier_particles predicts which paricles are "lost" using unsupervised outlier detection.
+        """ lost_particles predicts which paricles are "lost" using unsupervised outlier detection.
             In this case, we choose to use Scikit Learn - OneClassSVM
 
         Args:
@@ -252,7 +257,8 @@ class ParticleFilter(object):
         # Next make unsupervised outlier detection model
         # We have chosen to use OneClassSVM
         # Lower nu to detect fewer outliers
-        clf = OneClassSVM(nu=0.3, kernel="rbf", gamma=0.1)
+        # Here, we use 1/2 of the lost probability : self.p_lost / 2.0
+        clf = OneClassSVM(nu=.3, kernel="rbf", gamma=0.1)
         clf.fit(X_train)
 
         # Predict inliers and outliers
@@ -288,9 +294,8 @@ class ParticleFilter(object):
         desired_inliers = int(self.n_particles - desired_outliers)
 
         # Recalculate inliers
-        probabilities = [p.w for p in inliers]
-        probabilities /= np.sum(probabilities)
-        new_inliers = self.draw_random_sample(inliers, probabilities, desired_inliers)
+        probabilities = [p.w for p in self.particle_cloud]
+        new_inliers = self.draw_random_sample(self.particle_cloud, probabilities, desired_inliers)
 
         # Recalculate outliers
         # This keeps some number of outlying particles around unchanged, and spreads the rest randomly around the map.
