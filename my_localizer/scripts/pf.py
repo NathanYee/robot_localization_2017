@@ -59,7 +59,26 @@ class Particle(object):
                     orientation=Quaternion(x=orientation_tuple[0], y=orientation_tuple[1], z=orientation_tuple[2],
                                            w=orientation_tuple[3]))
 
-        # TODO: define additional helper functions if needed
+    def generate_uniformly_on_map(self, map):
+        """
+        Reinitialize the current particle to be at some random location and orientation on the provided map.
+        Args:
+            map (OccupancyGrid): The map to generate a random pose on
+        Returns:
+            self (Particle)
+        """
+        minx = map.info.origin.position.x
+        miny = map.info.origin.position.y
+        maxx = minx + map.info.width * map.info.resolution
+        maxy = minx + map.info.height * map.info.resolution
+
+        x = float(np.random.uniform(minx, maxx))
+        y = float(np.random.uniform(miny, maxy))
+
+        theta = float(np.random.uniform(-np.pi, np.pi))
+
+        self.__init__(x, y, theta)
+        return self
 
 
 class ParticleFilter(object):
@@ -95,6 +114,8 @@ class ParticleFilter(object):
         self.scan_topic = "scan"  # the topic where we will get laser scans from
 
         self.n_particles = 300  # the number of particles to use
+        self.p_lost = 0.3  # The probability given to the robot being "lost" at any given time
+        self.outliers_to_keep = 10  # The number of outliers to keep around
 
         self.d_thresh = 0.2  # the amount of linear movement before performing an update
         self.a_thresh = math.pi / 6  # the amount of angular movement before performing an update
@@ -167,7 +188,6 @@ class ParticleFilter(object):
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-
         for i, particle in enumerate(self.particle_cloud):
             # TODO: Change odometry uncertainty to be ROS param
 
@@ -206,12 +226,21 @@ class ParticleFilter(object):
         return np.array([[cosTheta, -sinTheta],
                          [sinTheta, cosTheta]])
 
-
-
     def map_calc_range(self, x, y, theta):
         """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
         # TODO: nothing unless you want to try this alternate likelihood model
         pass
+
+    def detectInliers(self, particle_cloud):
+        """
+
+        Args:
+             particle_cloud (list of Particle): The particles to sort
+        Returns:
+             inliers (list of Particle): Particles that are part of a large clump
+             outliers (list of Particle Particle): Particles exploring the frontier
+        """
+        return particle_cloud[:5], particle_cloud[5:]
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -219,17 +248,36 @@ class ParticleFilter(object):
             particle is selected in the resampling step.  You may want to make use of the given helper
             function draw_random_sample.
         """
+        # TODO: Dynamically decide how many particles we need
+
         # make sure the distribution is normalized
         self.normalize_particles()
 
-        choices = self.particle_cloud
-        probabilities = [p.w for p in choices]
-        # TODO: Dynamically decide how many particles we need
-        n = self.n_particles
+        # Calculate inlaying and exploring particle sets
+        inliers, outliers = self.detectInliers()
+        desired_outliers = int(self.n_particles * self.p_lost)
+        desired_inliers = int(self.n_particles - desired_outliers)
 
-        new_particles = self.draw_random_sample(choices, probabilities, n)
+        # Recalculate inliers
+        probabilities = [p.w for p in inliers]
+        probabilities /= np.sum(probabilities)
+        new_inliers = self.draw_random_sample(inliers, probabilities, desired_inliers)
 
-        # Set all of the weights back to the same value. Concentration of particles reflects weight.
+        # Recalculate outliers
+        # This keeps some number of outlying particles around unchanged, and spreads the rest randomly around the map.
+        if desired_outliers > min(len(outliers), self.outliers_to_keep):
+            outliers.sort(key=lambda p: p.w, reverse=True)
+
+            num_to_make = desired_outliers - min(len(outliers), self.outliers_to_keep)
+
+            new_outliers = outliers[:self.outliers_to_keep] + \
+                           [Particle().generate_uniformly_on_map(self.occupancy_field.map) for _ in xrange(num_to_make)]
+        else:
+            new_outliers = outliers[:desired_outliers]
+
+        # Set all of the weights back to the same value. Concentration of particles now reflects weight.
+        new_particles = new_inliers + new_outliers
+
         for p in new_particles:
             p.w = 1.0
         self.normalize_particles()
@@ -256,8 +304,7 @@ class ParticleFilter(object):
 
         distErr = abs(distErr)
 
-        return (1/(1+probMiss)) * (probMiss + 1/(distErr / k + 1))
-
+        return (1 / (1 + probMiss)) * (probMiss + 1 / (distErr / k + 1))
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg
@@ -267,13 +314,13 @@ class ParticleFilter(object):
 
         # Transform to cartesian coordinates
         scan_points = PointCloud()
-        scan_points.header= msg.header
+        scan_points.header = msg.header
 
         for i, range in enumerate(msg.ranges):
             if range == 0:
                 continue
             # Calculate point in laser coordinate frame
-            angle = msg.angle_min + i*msg.angle_increment
+            angle = msg.angle_min + i * msg.angle_increment
             x = range * np.cos(angle)
             y = range * np.sin(angle)
             scan_points.points.append(Point32(x=x, y=y))
@@ -318,7 +365,6 @@ class ParticleFilter(object):
 
         # Normalize particles
         self.normalize_particles()
-
 
     @staticmethod
     def weighted_values(values, probabilities, size):
@@ -387,8 +433,8 @@ class ParticleFilter(object):
             for p in self.particle_cloud:
                 p.w /= total
 
-        # Plan: divide each by the sum of all
-        # TODO: implement this
+                # Plan: divide each by the sum of all
+                # TODO: implement this
 
     def publish_particles(self, msg):
         particles_conv = []
