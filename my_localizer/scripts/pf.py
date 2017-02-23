@@ -17,6 +17,7 @@ from tf import TransformBroadcaster
 from tf.transformations import euler_from_quaternion, rotation_matrix, quaternion_from_matrix
 from random import gauss
 
+
 import math
 import time
 
@@ -24,6 +25,7 @@ import numpy as np
 import scipy
 from numpy.random import random_sample
 from sklearn.neighbors import NearestNeighbors
+from sklearn.svm import OneClassSVM
 from occupancy_field import OccupancyField
 
 from helper_functions import (convert_pose_inverse_transform,
@@ -231,16 +233,43 @@ class ParticleFilter(object):
         # TODO: nothing unless you want to try this alternate likelihood model
         pass
 
-    def detectInliers(self, particle_cloud):
-        """
+
+    def lost_particles(self):
+        """ inlier_outlier_particles predicts which paricles are "lost" using unsupervised outlier detection.
+            In this case, we choose to use Scikit Learn - OneClassSVM
 
         Args:
-             particle_cloud (list of Particle): The particles to sort
+
         Returns:
-             inliers (list of Particle): Particles that are part of a large clump
-             outliers (list of Particle Particle): Particles exploring the frontier
+            inliers = particles that are not lost
+            outlier = particles that are lost
         """
-        return particle_cloud[:5], particle_cloud[5:]
+        # First format training data
+        x = [p.x for p in self.particle_cloud]
+        y = [p.y for p in self.particle_cloud]
+        X_train = np.array(zip(x, y))
+
+        # Next make unsupervised outlier detection model
+        # We have chosen to use OneClassSVM
+        # Lower nu to detect fewer outliers
+        clf = OneClassSVM(nu=0.3, kernel="rbf", gamma=0.1)
+        clf.fit(X_train)
+
+        # Predict inliers and outliers
+        y_pred_train = clf.predict(X_train)
+
+        # Create inlier and outlier particle lists
+        inliers = []
+        outliers = []
+
+        # Iterate through particles and predictions to populate lists
+        for p, pred in zip(self.particle_cloud, y_pred_train):
+            if pred == 1:
+                inliers.append(p)
+            elif pred == -1:
+                outliers.append(p)
+
+        return inliers, outliers
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -254,7 +283,7 @@ class ParticleFilter(object):
         self.normalize_particles()
 
         # Calculate inlaying and exploring particle sets
-        inliers, outliers = self.detectInliers()
+        inliers, outliers = self.lost_particles()
         desired_outliers = int(self.n_particles * self.p_lost)
         desired_inliers = int(self.n_particles - desired_outliers)
 
