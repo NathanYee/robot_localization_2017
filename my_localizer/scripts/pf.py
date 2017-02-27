@@ -505,6 +505,8 @@ class ParticleFilter(object):
             # this will eventually be published by either Gazebo or neato_node
             return
 
+        startTime = time.clock()
+
         # calculate pose of laser relative ot the robot base
         p = PoseStamped(header=Header(stamp=rospy.Time(0),
                                       frame_id=msg.header.frame_id))
@@ -534,8 +536,11 @@ class ParticleFilter(object):
             self.update_robot_pose()  # update robot's pose
             self.resample_particles()  # resample particles to focus on areas of high density
             self.fix_map_to_odom_transform(msg)  # update map to odom transform now that we have new particles
+            print "Calculation time: {}ms".format((time.clock() - startTime) * 1000)
+
         # publish particles (so things like rviz can see them)
         self.publish_particles(msg)
+
 
     def fix_map_to_odom_transform(self, msg):
         """ This method constantly updates the offset of the map and
